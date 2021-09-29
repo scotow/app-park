@@ -40,13 +40,16 @@ async fn find_apps() {
                     let mut data = Vec::with_capacity(zip_file.size() as usize);
                     zip_file.read_to_end(&mut data).unwrap();
                     let data = Cursor::new(data);
+                    let plist = Value::from_reader(data).unwrap();
+                    let dict = plist.as_dictionary().unwrap();
 
-                    let plist = Value::from_reader_xml(data).unwrap();
-                    let version = plist.as_dictionary().unwrap()
-                        .get("CFBundleShortVersionString").unwrap()
-                        .as_string().unwrap();
-                    dbg!(&plist);
-                    println!("{:?}", version);
+                    let version = dict.get("CFBundleShortVersionString").unwrap().as_string().unwrap();
+                    let name = dict.get("CFBundleDisplayName")
+                        .or_else(|| dict.get("CFBundleName"))
+                        .unwrap()
+                        .as_string()
+                        .unwrap();
+                    dbg!(version, name);
                 }
             }
         }
