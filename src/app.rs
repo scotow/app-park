@@ -3,18 +3,19 @@ use std::fs::File;
 use zip::ZipArchive;
 use std::io::{Read, Cursor};
 use plist::Value;
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Clone, Serialize, Debug)]
 pub struct App {
     id: String,
     name: String,
     version: String,
     build: String,
-    image: Option<Vec<u8>>,
+    image: Option<String>,
 }
 
 impl App {
-    pub fn new(path: PathBuf) -> Self {
+    pub fn new(path: PathBuf) -> (String, Self) {
         let mut plist = None;
         let mut image: Option<Vec<u8>> = None;
 
@@ -52,13 +53,15 @@ impl App {
                 .unwrap()
                 .as_string()
                 .unwrap();
-            App {
-                id: path.file_stem().unwrap().to_str().unwrap().to_owned(),
+
+            let id = path.file_stem().unwrap().to_str().unwrap().to_owned();
+            (id.clone(), App {
+                id,
                 name: name.to_owned(),
                 version: version.to_owned(),
                 build: build.to_owned(),
-                image,
-            }
+                image: image.map(|i| base64::encode(&i)),
+            })
         } else {
             panic!("")
         }
