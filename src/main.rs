@@ -14,37 +14,45 @@ use tokio::fs::File;
 use axum::body::StreamBody;
 use tokio_util::io::ReaderStream;
 use crate::error::Error;
+use crate::options::Options;
+use structopt::StructOpt;
+use std::net::SocketAddr;
+use std::path::PathBuf;
 
 mod app;
 mod error;
+mod options;
 
+struct AppsStorage(PathBuf);
 type Apps = Arc<Mutex<HashMap<String, App>>>;
 
 #[tokio::main]
 async fn main() {
-    let apps = Arc::new(Mutex::new(find_apps().await.unwrap()));
+    let options = Options::from_args();
 
-    let app = Router::new()
+    let storage = Arc::new(AppsStorage(options.storage));
+    let apps = Arc::new(Mutex::new(find_apps(&storage).await.unwrap()));
+
+    let router = Router::new()
         .route("/", get(index))
         .route("/index.html", get(index))
         .route("/reload", post(reload_apps))
         .route("/apps", get(list_apps))
         .route("/apps/:id/manifest", get(app_manifest))
         .route("/apps/:id/ipa", get(app_ipa))
+        .layer(AddExtensionLayer::new(storage))
         .layer(AddExtensionLayer::new(apps));
 
-    axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    axum::Server::bind(&SocketAddr::new(options.address, options.port))
+        .serve(router.into_make_service()).await.unwrap();
 }
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("assets/index.html"))
 }
 
-async fn reload_apps(Extension(apps): Extension<Apps>) -> Result<(), Error> {
-    *apps.lock().await = find_apps().await?;
+async fn reload_apps(Extension(storage): Extension<Arc<AppsStorage>>, Extension(apps): Extension<Apps>) -> Result<(), Error> {
+    *apps.lock().await = find_apps(&storage).await?;
     Ok(())
 }
 
@@ -75,9 +83,9 @@ async fn app_ipa(Path(id): Path<String>) -> Result<impl IntoResponse, Error> {
     Ok((headers, StreamBody::new(ReaderStream::new(file))))
 }
 
-async fn find_apps() -> Result<HashMap<String, App>, Error> {
+async fn find_apps(storage: &AppsStorage) -> Result<HashMap<String, App>, Error> {
     let mut apps = HashMap::new();
-    let mut dir = tokio::fs::read_dir("apps").await.map_err(|_| Error::AppsStorage)?;
+    let mut dir = tokio::fs::read_dir(&storage.0).await.map_err(|_| Error::AppsStorage)?;
     while let Ok(Some(file)) = dir.next_entry().await {
         if file.file_name().to_str().map(|p| p.ends_with(".ipa")) == Some(true) {
             if let Some((id, app)) = App::new(file.path()) {
