@@ -5,11 +5,14 @@ use axum::{AddExtensionLayer, handler::get, Json, Router};
 use axum::extract::{Extension, Path};
 use axum::handler::post;
 use axum::http::{HeaderMap, HeaderValue};
-use axum::http::header::CONTENT_TYPE;
-use axum::response::Html;
+use axum::http::header::{CONTENT_TYPE, CONTENT_LENGTH};
+use axum::response::{Html, IntoResponse};
 use tokio::sync::Mutex;
 
 use crate::app::App;
+use tokio::fs::File;
+use axum::body::StreamBody;
+use tokio_util::io::ReaderStream;
 
 mod app;
 
@@ -25,6 +28,7 @@ async fn main() {
         .route("/reload", post(reload_apps))
         .route("/apps", get(list_apps))
         .route("/apps/:id/manifest", get(app_manifest))
+        .route("/apps/:id/binary", get(app_binary))
         .layer(AddExtensionLayer::new(apps));
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
@@ -51,6 +55,15 @@ async fn app_manifest(Path(id): Path<String>, Extension(apps): Extension<Apps>) 
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/xml"));
     (headers, apps.lock().await.get(&id).unwrap().manifest())
+}
+
+async fn app_binary(Path(id): Path<String>) -> impl IntoResponse {
+    let file = File::open(format!("apps/{}.ipa", id)).await.unwrap();
+    let size = file.metadata().await.unwrap().len();
+    let mut headers = HeaderMap::new();
+    headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
+    headers.insert(CONTENT_LENGTH, HeaderValue::from(size));
+    (headers, StreamBody::new(ReaderStream::new(file)))
 }
 
 async fn find_apps() -> HashMap<String, App> {
