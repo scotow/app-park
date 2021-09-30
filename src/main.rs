@@ -13,14 +13,16 @@ use crate::app::App;
 use tokio::fs::File;
 use axum::body::StreamBody;
 use tokio_util::io::ReaderStream;
+use crate::error::Error;
 
 mod app;
+mod error;
 
 type Apps = Arc<Mutex<HashMap<String, App>>>;
 
 #[tokio::main]
 async fn main() {
-    let apps = Arc::new(Mutex::new(find_apps().await));
+    let apps = Arc::new(Mutex::new(find_apps().await.unwrap()));
 
     let app = Router::new()
         .route("/", get(index))
@@ -41,8 +43,9 @@ async fn index() -> Html<&'static str> {
     Html(include_str!("assets/index.html"))
 }
 
-async fn reload_apps(Extension(apps): Extension<Apps>) {
-    *apps.lock().await = find_apps().await;
+async fn reload_apps(Extension(apps): Extension<Apps>) -> Result<(), Error> {
+    *apps.lock().await = find_apps().await?;
+    Ok(())
 }
 
 async fn list_apps(Extension(apps): Extension<Apps>) -> Json<Vec<App>> {
@@ -51,25 +54,30 @@ async fn list_apps(Extension(apps): Extension<Apps>) -> Json<Vec<App>> {
     Json(apps)
 }
 
-async fn app_manifest(headers: HeaderMap, Path(id): Path<String>, Extension(apps): Extension<Apps>) -> (HeaderMap, String) {
-    let manifest = apps.lock().await.get(&id).unwrap().manifest(headers.get(HOST).unwrap().to_str().unwrap());
+async fn app_manifest(headers: HeaderMap, Path(id): Path<String>, Extension(apps): Extension<Apps>) -> Result<(HeaderMap, String), Error> {
+    let manifest = apps.lock().await.get(&id)
+        .ok_or(Error::InvalidApp)?
+        .manifest(
+            headers.get(HOST).ok_or(Error::HostHeader)?
+                .to_str().map_err(|_| Error::HostHeader)?
+        );
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/xml"));
-    (headers, manifest)
+    Ok((headers, manifest))
 }
 
-async fn app_ipa(Path(id): Path<String>) -> impl IntoResponse {
-    let file = File::open(format!("apps/{}.ipa", id)).await.unwrap();
-    let size = file.metadata().await.unwrap().len();
+async fn app_ipa(Path(id): Path<String>) -> Result<impl IntoResponse, Error> {
+    let file = File::open(format!("apps/{}.ipa", id)).await.map_err(|_| Error::AppBinary)?;
+    let size = file.metadata().await.map_err(|_| Error::AppMetadata)?.len();
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
     headers.insert(CONTENT_LENGTH, HeaderValue::from(size));
-    (headers, StreamBody::new(ReaderStream::new(file)))
+    Ok((headers, StreamBody::new(ReaderStream::new(file))))
 }
 
-async fn find_apps() -> HashMap<String, App> {
+async fn find_apps() -> Result<HashMap<String, App>, Error> {
     let mut apps = HashMap::new();
-    let mut dir = tokio::fs::read_dir("apps").await.unwrap();
+    let mut dir = tokio::fs::read_dir("apps").await.map_err(|_| Error::AppsStorage)?;
     while let Ok(Some(file)) = dir.next_entry().await {
         if file.file_name().to_str().map(|p| p.ends_with(".ipa")) == Some(true) {
             if let Some((id, app)) = App::new(file.path()) {
@@ -77,5 +85,5 @@ async fn find_apps() -> HashMap<String, App> {
             }
         }
     }
-    apps
+    Ok(apps)
 }
