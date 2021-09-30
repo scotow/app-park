@@ -102,20 +102,12 @@ fn binary_last_change(archive: &mut ZipArchive<File>, app_dir_path: &str, binary
 }
 
 fn extract_icon_base64(archive: &mut ZipArchive<File>, app_dir_path: &str, icon: &str) -> Option<String> {
-    fn icon_base64(archive: &mut ZipArchive<File>, app_dir_path: &str, icon: &str, modifier: Option<&str>) -> Option<String> {
-        let mut icon_zip_file = archive.by_name(&format!("{}{}{}.png", app_dir_path, icon, modifier.unwrap_or(""))).ok()?;
-        let mut icon = Vec::with_capacity(icon_zip_file.size() as usize);
-        icon_zip_file.read_to_end(&mut icon).ok()?;
-        Some(base64::encode(&icon))
+    for res in ["@3x", "@2x", ""] {
+        if let Ok(mut icon_zip_file) = archive.by_name(&format!("{}{}{}.png", app_dir_path, icon, res)) {
+            let mut icon = Vec::with_capacity(icon_zip_file.size() as usize);
+            icon_zip_file.read_to_end(&mut icon).ok()?;
+            return Some(base64::encode(&icon));
+        }
     }
-
-    if let Some(out) = icon_base64(archive, app_dir_path, icon, Some("@3x")) {
-        Some(out)
-    } else if let Some(out) = icon_base64(archive, app_dir_path, icon, Some("@2x")) {
-        Some(out)
-    } else if let Some(out) = icon_base64(archive, app_dir_path, icon, None) {
-        Some(out)
-    } else {
-        None
-    }
+    None
 }
