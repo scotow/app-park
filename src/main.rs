@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use axum::{AddExtensionLayer, handler::get, Router, Json};
+use axum::{AddExtensionLayer, handler::get, Json, Router};
 use axum::extract::{Extension, Path};
+use axum::handler::post;
+use axum::http::{HeaderMap, HeaderValue};
+use axum::http::header::CONTENT_TYPE;
+use axum::response::Html;
 use tokio::sync::Mutex;
 
 use crate::app::App;
-use axum::response::Html;
-use axum::http::{HeaderMap, HeaderValue};
-use axum::http::header::CONTENT_TYPE;
 
 mod app;
 
@@ -21,6 +22,7 @@ async fn main() {
     let app = Router::new()
         .route("/", get(index))
         .route("/index.html", get(index))
+        .route("/reload", post(reload_apps))
         .route("/apps", get(list_apps))
         .route("/apps/:id/manifest", get(app_manifest))
         .layer(AddExtensionLayer::new(apps));
@@ -33,6 +35,10 @@ async fn main() {
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("assets/index.html"))
+}
+
+async fn reload_apps(Extension(apps): Extension<Apps>) {
+    *apps.lock().await = find_apps().await;
 }
 
 async fn list_apps(Extension(apps): Extension<Apps>) -> Json<Vec<App>> {
@@ -52,8 +58,9 @@ async fn find_apps() -> HashMap<String, App> {
     let mut dir = tokio::fs::read_dir("apps").await.unwrap();
     while let Ok(Some(file)) = dir.next_entry().await {
         if file.file_name().to_str().map(|p| p.ends_with(".ipa")) == Some(true) {
-            let (id, app) = App::new(file.path());
-            apps.insert(id, app);
+            if let Some((id, app)) = App::new(file.path()) {
+                apps.insert(id, app);
+            }
         }
     }
     apps
