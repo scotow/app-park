@@ -36,7 +36,9 @@ async fn index() -> Html<&'static str> {
 }
 
 async fn list_apps(Extension(apps): Extension<Apps>) -> Json<Vec<App>> {
-    Json(apps.lock().await.values().cloned().collect())
+    let mut apps = apps.lock().await.values().cloned().collect::<Vec<_>>();
+    apps.sort_by(|a, b| a.date().cmp(b.date()).reverse());
+    Json(apps)
 }
 
 async fn app_manifest(Path(id): Path<String>, Extension(apps): Extension<Apps>) -> (HeaderMap, String) {

@@ -80,6 +80,10 @@ impl App {
         }
     }
 
+    pub fn date(&self) -> &DateTime<Utc> {
+        &self.date
+    }
+
     pub fn manifest(&self) -> String {
         include_str!("assets/manifest.plist")
             .replace("$BUNDLE_IDENTIFIER", &self.bundle_id)
