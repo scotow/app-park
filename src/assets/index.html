@@ -142,7 +142,7 @@
 
                     const install = document.createElement('a');
                     install.classList.add('install');
-                    install.href = `itms-services://?action=download-manifest&url=${window.location.href}${app.id}/manifest`
+                    install.href = `itms-services://?action=download-manifest&url=${window.location.href}apps/${app.id}/manifest`
 
                     info.append(name, date, version);
                     elem.append(icon, info, install);

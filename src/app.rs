@@ -45,11 +45,13 @@ impl App {
         &self.date
     }
 
-    pub fn manifest(&self) -> String {
+    pub fn manifest(&self, host: &str) -> String {
         include_str!("assets/manifest.plist")
-            .replace("$BUNDLE_IDENTIFIER", &self.bundle_id)
-            .replace("$BUNDLE_VERSION", &self.version)
-            .replace("$TITLE", &self.name)
+            .replacen("$HOST", host, 1)
+            .replacen("$ID", &self.id, 1)
+            .replacen("$BUNDLE_IDENTIFIER", &self.bundle_id, 1)
+            .replacen("$BUNDLE_VERSION", &self.version, 1)
+            .replacen("$TITLE", &self.name, 1)
     }
 }
 

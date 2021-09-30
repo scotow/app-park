@@ -5,7 +5,7 @@ use axum::{AddExtensionLayer, handler::get, Json, Router};
 use axum::extract::{Extension, Path};
 use axum::handler::post;
 use axum::http::{HeaderMap, HeaderValue};
-use axum::http::header::{CONTENT_TYPE, CONTENT_LENGTH};
+use axum::http::header::{CONTENT_TYPE, CONTENT_LENGTH, HOST};
 use axum::response::{Html, IntoResponse};
 use tokio::sync::Mutex;
 
@@ -28,7 +28,7 @@ async fn main() {
         .route("/reload", post(reload_apps))
         .route("/apps", get(list_apps))
         .route("/apps/:id/manifest", get(app_manifest))
-        .route("/apps/:id/binary", get(app_binary))
+        .route("/apps/:id/ipa", get(app_ipa))
         .layer(AddExtensionLayer::new(apps));
 
     axum::Server::bind(&"0.0.0.0:3000".parse().unwrap())
@@ -51,13 +51,14 @@ async fn list_apps(Extension(apps): Extension<Apps>) -> Json<Vec<App>> {
     Json(apps)
 }
 
-async fn app_manifest(Path(id): Path<String>, Extension(apps): Extension<Apps>) -> (HeaderMap, String) {
+async fn app_manifest(headers: HeaderMap, Path(id): Path<String>, Extension(apps): Extension<Apps>) -> (HeaderMap, String) {
+    let manifest = apps.lock().await.get(&id).unwrap().manifest(headers.get(HOST).unwrap().to_str().unwrap());
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/xml"));
-    (headers, apps.lock().await.get(&id).unwrap().manifest())
+    (headers, manifest)
 }
 
-async fn app_binary(Path(id): Path<String>) -> impl IntoResponse {
+async fn app_ipa(Path(id): Path<String>) -> impl IntoResponse {
     let file = File::open(format!("apps/{}.ipa", id)).await.unwrap();
     let size = file.metadata().await.unwrap().len();
     let mut headers = HeaderMap::new();
