@@ -66,7 +66,9 @@ async fn app_manifest(headers: HeaderMap, Path(id): Path<String>, Extension(apps
     let manifest = apps.lock().await.get(&id)
         .ok_or(Error::InvalidApp)?
         .manifest(
-            headers.get(HOST).ok_or(Error::HostHeader)?
+            headers.get("X-Forwarded-Host")
+                .or_else(|| headers.get(HOST))
+                .ok_or(Error::HostHeader)?
                 .to_str().map_err(|_| Error::HostHeader)?
         );
     let mut headers = HeaderMap::new();
