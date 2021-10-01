@@ -163,6 +163,13 @@
                     info.append(name, date, version);
                     elem.append(icon, info, install);
                     document.getElementById('apps').append(elem);
+
+                    icon.onerror = () => {
+                        icon.remove();
+                        const blank = document.createElement('img');
+                        blank.classList.add('icon');
+                        elem.insertBefore(blank, info);
+                    };
                 }   
             }
         }

@@ -18,6 +18,7 @@ use crate::options::Options;
 use structopt::StructOpt;
 use std::net::SocketAddr;
 use std::path::PathBuf;
+use tokio::task::spawn_blocking;
 
 mod app;
 mod error;
@@ -90,7 +91,9 @@ async fn find_apps(storage: &AppsStorage) -> Result<HashMap<String, App>, Error>
     let mut dir = tokio::fs::read_dir(&storage.0).await.map_err(|_| Error::AppsStorage)?;
     while let Ok(Some(file)) = dir.next_entry().await {
         if file.file_name().to_str().map(|p| p.ends_with(".ipa")) == Some(true) {
-            if let Some((id, app)) = App::new(file.path()) {
+            if let Some((id, app)) = spawn_blocking(move || {
+                App::new(file.path())
+            }).await.map_err(|_| Error::AppsStorage)? {
                 apps.insert(id, app);
             }
         }
