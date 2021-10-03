@@ -1,7 +1,7 @@
-use thiserror::Error;
-use axum::response::IntoResponse;
 use axum::body::Body;
 use axum::http::{Response, StatusCode};
+use axum::response::IntoResponse;
+use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum Error {

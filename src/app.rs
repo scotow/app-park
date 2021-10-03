@@ -1,10 +1,11 @@
-use std::path::PathBuf;
 use std::fs::File;
-use zip::ZipArchive;
-use std::io::{Read, Cursor};
+use std::io::{Cursor, Read};
+use std::path::PathBuf;
+
+use chrono::{DateTime, TimeZone, Utc};
 use plist::Value;
 use serde::Serialize;
-use chrono::{Utc, TimeZone, DateTime};
+use zip::ZipArchive;
 
 #[derive(Clone, Serialize, Debug)]
 pub struct App {
