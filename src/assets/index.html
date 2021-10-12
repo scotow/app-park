@@ -18,13 +18,26 @@
             margin: 0;
         }
 
-        #title {
-            margin: 12px;
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+        }
+
+        .header > .title {
+            margin-right: 12px;
             font-size: 38px;
             font-weight: bold;
         }
 
-        #apps {
+        .header > .help {
+            color: rgb(0, 122, 255);
+            font-size: 18px;
+            cursor: pointer;
+        }
+
+        .apps {
             text-align: center;
             padding: 12px;
         }
@@ -123,6 +136,17 @@
         document.addEventListener('DOMContentLoaded', documentReady, false);
 
         function documentReady() {
+            document.getElementById('help').addEventListener('click', () => {
+                if (window.confirm([
+                    'Having trouble installing apps?',
+                    'The signature of the app you are trying to install maybe expired or wasn\'t even correct in the first place. Check your binary or ask the developer in charge.',
+                    'If you are trying to install an Enterprise signed app, you may need to trust the company in the Settings app. Check out Apple\'s official support page for more information.',
+                    'Open Apple\'s Support page concerning Enterprise Apps?'
+                ].join('\n\n'))) {
+                    window.open('https://support.apple.com/en-us/HT204460', '_blank');
+                }
+            });
+
             fetch('/apps')
                 .then(response => response.json())
                 .then(data => createApps(data));
@@ -176,7 +200,10 @@
     </script>
 </head>
 <body>
-    <div id="title">App Park</div>
-    <div id="apps"></div>
+    <div class="header">
+        <div class="title">App Park</div>
+        <div id="help" class="help">Help</div>
+    </div>
+    <div id="apps" class="apps"></div>
 </body>
 </html>
