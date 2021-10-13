@@ -10,6 +10,7 @@ use zip::ZipArchive;
 #[derive(Clone, Serialize, Debug)]
 pub struct App {
     id: String,
+    #[serde(skip)]
     bundle_id: String,
     name: String,
     version: String,
