@@ -21,12 +21,13 @@ pub struct App {
 }
 
 impl App {
-    pub fn new(path: PathBuf) -> Option<(String, Self)> {
+    pub fn new(path: PathBuf) -> Option<Self> {
         let file = File::open(&path).ok()?;
         let size = file.metadata().ok()?.len();
         let mut archive = ZipArchive::new(file).ok()?;
         let app_dir_path = find_app_dir(&mut archive)?;
-        let (binary, bundle_id, version, build, name, icon_name) = find_info_plist(&mut archive, &app_dir_path)?;
+        let (binary, bundle_id, version, build, name, icon_name) =
+            find_info_plist(&mut archive, &app_dir_path)?;
         let date = binary_last_change(&mut archive, &app_dir_path, &binary)?;
         let icon = match icon_name {
             Some(name) => Some(extract_icon_base64(&mut archive, &app_dir_path, &name)?),
@@ -34,16 +35,22 @@ impl App {
         };
 
         let id = path.file_stem()?.to_str()?.to_owned();
-        Some((id.clone(), App {
-            id,
-            size,
-            bundle_id,
-            name,
-            version,
-            build,
-            date,
-            icon,
-        }))
+        Some(
+            App {
+                id,
+                size,
+                bundle_id,
+                name,
+                version,
+                build,
+                date,
+                icon,
+            },
+        )
+    }
+
+    pub fn id(&self) -> &str {
+        &self.id
     }
 
     pub fn date(&self) -> &DateTime<Utc> {
@@ -69,8 +76,13 @@ fn find_app_dir(archive: &mut ZipArchive<File>) -> Option<String> {
     }
 }
 
-fn find_info_plist(archive: &mut ZipArchive<File>, app_dir_path: &str) -> Option<(String, String, String, String, String, Option<String>)> {
-    let mut plist_zip_file = archive.by_name(&format!("{}{}", app_dir_path, "Info.plist")).ok()?;
+fn find_info_plist(
+    archive: &mut ZipArchive<File>,
+    app_dir_path: &str,
+) -> Option<(String, String, String, String, String, Option<String>)> {
+    let mut plist_zip_file = archive
+        .by_name(&format!("{}{}", app_dir_path, "Info.plist"))
+        .ok()?;
     let mut plist = Vec::with_capacity(plist_zip_file.size() as usize);
     plist_zip_file.read_to_end(&mut plist).ok()?;
 
@@ -80,11 +92,14 @@ fn find_info_plist(archive: &mut ZipArchive<File>, app_dir_path: &str) -> Option
     Some((
         dict.get("CFBundleExecutable")?.as_string()?.to_owned(),
         dict.get("CFBundleIdentifier")?.as_string()?.to_owned(),
-        dict.get("CFBundleShortVersionString")?.as_string()?.to_owned(),
+        dict.get("CFBundleShortVersionString")?
+            .as_string()?
+            .to_owned(),
         dict.get("CFBundleVersion")?.as_string()?.to_owned(),
         dict.get("CFBundleDisplayName")
             .or_else(|| dict.get("CFBundleName"))?
-            .as_string()?.to_owned(),
+            .as_string()?
+            .to_owned(),
         dict.get("CFBundleIcons")
             .and_then(|icons| icons.as_dictionary())
             .and_then(|icons| icons.get("CFBundlePrimaryIcon"))
@@ -93,22 +108,42 @@ fn find_info_plist(archive: &mut ZipArchive<File>, app_dir_path: &str) -> Option
             .and_then(|icons| icons.as_array())
             .and_then(|icons| icons.last())
             .and_then(|icon| icon.as_string())
-            .map(|icon| icon.to_owned())
+            .map(|icon| icon.to_owned()),
     ))
 }
 
-fn binary_last_change(archive: &mut ZipArchive<File>, app_dir_path: &str, binary: &str) -> Option<DateTime<Utc>> {
-    let binary = archive.by_name(&format!("{}{}", app_dir_path, binary)).ok()?;
+fn binary_last_change(
+    archive: &mut ZipArchive<File>,
+    app_dir_path: &str,
+    binary: &str,
+) -> Option<DateTime<Utc>> {
+    let binary = archive
+        .by_name(&format!("{}{}", app_dir_path, binary))
+        .ok()?;
     let modified = binary.last_modified();
-    Some(Utc
-        .ymd(modified.year() as i32, modified.month() as u32, modified.day() as u32)
-        .and_hms(modified.hour() as u32, modified.minute() as u32, modified.second() as u32)
+    Some(
+        Utc.ymd(
+            modified.year() as i32,
+            modified.month() as u32,
+            modified.day() as u32,
+        )
+            .and_hms(
+                modified.hour() as u32,
+                modified.minute() as u32,
+                modified.second() as u32,
+            ),
     )
 }
 
-fn extract_icon_base64(archive: &mut ZipArchive<File>, app_dir_path: &str, icon: &str) -> Option<String> {
+fn extract_icon_base64(
+    archive: &mut ZipArchive<File>,
+    app_dir_path: &str,
+    icon: &str,
+) -> Option<String> {
     for res in ["@3x", "@2x", ""] {
-        if let Ok(mut icon_zip_file) = archive.by_name(&format!("{}{}{}.png", app_dir_path, icon, res)) {
+        if let Ok(mut icon_zip_file) =
+        archive.by_name(&format!("{}{}{}.png", app_dir_path, icon, res))
+        {
             let mut icon = Vec::with_capacity(icon_zip_file.size() as usize);
             icon_zip_file.read_to_end(&mut icon).ok()?;
             return Some(base64::encode(&icon));
