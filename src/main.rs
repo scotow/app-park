@@ -76,8 +76,8 @@ async fn app_manifest(headers: HeaderMap, Path(id): Path<String>, Extension(apps
     Ok((headers, manifest))
 }
 
-async fn app_ipa(Path(id): Path<String>) -> Result<impl IntoResponse, Error> {
-    let file = File::open(format!("apps/{}.ipa", id)).await.map_err(|_| Error::AppBinary)?;
+async fn app_ipa(Path(id): Path<String>, Extension(storage): Extension<Arc<AppsStorage>>) -> Result<impl IntoResponse, Error> {
+    let file = File::open(storage.0.join(format!("{}.ipa", id))).await.map_err(|_| Error::AppBinary)?;
     let size = file.metadata().await.map_err(|_| Error::AppMetadata)?.len();
     let mut headers = HeaderMap::new();
     headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/octet-stream"));
