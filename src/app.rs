@@ -26,7 +26,7 @@ impl App {
         let size = file.metadata().ok()?.len();
         let mut archive = ZipArchive::new(file).ok()?;
         let app_dir_path = find_app_dir(&mut archive)?;
-        let (binary, bundle, version, build, name, icon_name) = find_info_plist(&mut archive, &app_dir_path)?;
+        let (binary, bundle_id, version, build, name, icon_name) = find_info_plist(&mut archive, &app_dir_path)?;
         let date = binary_last_change(&mut archive, &app_dir_path, &binary)?;
         let icon = match icon_name {
             Some(name) => Some(extract_icon_base64(&mut archive, &app_dir_path, &name)?),
@@ -37,10 +37,10 @@ impl App {
         Some((id.clone(), App {
             id,
             size,
-            bundle_id: bundle.to_owned(),
-            name: name.to_owned(),
-            version: version.to_owned(),
-            build: build.to_owned(),
+            bundle_id,
+            name,
+            version,
+            build,
             date,
             icon,
         }))
