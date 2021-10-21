@@ -86,7 +86,14 @@
             color: darkgrey;
         }
 
-        .app > .install {
+        .app > .right {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transform: translateY(6px);
+        }
+
+        .app > .right > .install {
             padding: 4px 20px;
             font-size: 16px;
             font-weight: bold;
@@ -96,8 +103,14 @@
             text-decoration: none;
         }
 
-        .app > .install::before {
+        .app > .right > .install::before {
             content: 'GET';
+        }
+
+        .app > .right > .size {
+            margin-top: 2px;
+            font-size: 10px;
+            color: darkgray;
         }
 
         @media only screen and (max-width: 768px) {
@@ -127,7 +140,7 @@
                 background-color: #131313;
             }
 
-            .app > .install {
+            .app > .right > .install {
                 background-color: rgb(40, 40, 40);
             }
         }
@@ -180,12 +193,20 @@
                     version.classList.add('version');
                     version.innerText = `${app.version} (${app.build})`;
 
+                    const right = document.createElement('div');
+                    right.classList.add('right');
+
                     const install = document.createElement('a');
                     install.classList.add('install');
                     install.href = `itms-services://?action=download-manifest&url=${window.location.href}apps/${app.id}/manifest`
 
+                    const size = document.createElement('div');
+                    size.classList.add('size');
+                    size.innerText = humanFileSize(app.size);
+
                     info.append(name, date, version);
-                    elem.append(icon, info, install);
+                    right.append(install, size);
+                    elem.append(icon, info, right);
                     document.getElementById('apps').append(elem);
 
                     icon.onerror = () => {
@@ -195,6 +216,20 @@
                         elem.insertBefore(blank, info);
                     };
                 }   
+            }
+        
+            function humanFileSize(bytes) {
+                if (Math.abs(bytes) < 1000) {
+                    return bytes + ' B';
+                }
+                const units = ['kB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+                let u = -1;
+                const r = 10;
+                do {
+                    bytes /= 1000;
+                    ++u;
+                } while (Math.round(Math.abs(bytes) * r) / r >= 1000 && u < units.length - 1);
+                return bytes.toFixed(1) + ' ' + units[u];
             }
         }
     </script>

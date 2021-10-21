@@ -16,12 +16,14 @@ pub struct App {
     version: String,
     build: String,
     date: DateTime<Utc>,
+    size: u64,
     icon: Option<String>,
 }
 
 impl App {
     pub fn new(path: PathBuf) -> Option<(String, Self)> {
         let file = File::open(&path).ok()?;
+        let size = file.metadata().ok()?.len();
         let mut archive = ZipArchive::new(file).ok()?;
         let app_dir_path = find_app_dir(&mut archive)?;
         let (binary, bundle, version, build, name, icon_name) = find_info_plist(&mut archive, &app_dir_path)?;
@@ -34,6 +36,7 @@ impl App {
         let id = path.file_stem()?.to_str()?.to_owned();
         Some((id.clone(), App {
             id,
+            size,
             bundle_id: bundle.to_owned(),
             name: name.to_owned(),
             version: version.to_owned(),
