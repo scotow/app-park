@@ -2,16 +2,17 @@ use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use axum::{AddExtensionLayer, handler::get, Json, Router};
+use axum::{AddExtensionLayer, Json, Router};
 use axum::body::StreamBody;
 use axum::extract::{Extension, Path};
-use axum::handler::post;
 use axum::http::{HeaderMap, HeaderValue};
 use axum::http::header::{CONTENT_LENGTH, CONTENT_TYPE, HOST};
 use axum::response::{Html, IntoResponse};
+use axum::routing::{get, post};
+use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use structopt::StructOpt;
 use tokio::fs::File;
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tokio_util::io::ReaderStream;
 
 use crate::app::App;
@@ -33,6 +34,14 @@ async fn main() {
     let storage = Arc::new(AppsStorage(options.storage));
     let apps = Arc::new(Mutex::new(storage.find_apps().await.unwrap()));
 
+    if options.watch_storage {
+        let storage = Arc::clone(&storage);
+        let apps = Arc::clone(&apps);
+        tokio::task::spawn(async move {
+            watch_storage(storage, apps).await.unwrap();
+        });
+    }
+
     let router = Router::new()
         .route("/", get(index))
         .route("/index.html", get(index))
@@ -48,6 +57,43 @@ async fn main() {
         .await
         .unwrap();
 }
+
+pub async fn watch_storage(storage: Arc<AppsStorage>, apps: Apps) -> notify::Result<()> {
+    let (tx, mut rx) = mpsc::channel(1);
+
+    let mut watcher = RecommendedWatcher::new(move |res| {
+        tx.blocking_send(res).unwrap();
+    })?;
+    watcher.watch(&storage.0, RecursiveMode::NonRecursive)?;
+
+    while let Some(res) = rx.recv().await {
+        match res {
+            Ok(_event) => {
+                *apps.lock().await = storage.find_apps().await.unwrap();
+            },
+            Err(err) => eprintln!("watch error: {:?}", err),
+        }
+    }
+
+    Ok(())
+}
+
+// fn watch_storage(storage: Arc<AppsStorage>, apps: Apps) -> RecommendedWatcher {
+//     dbg!("here2");
+//     let watch_path = storage.0.clone();
+//     let mut watcher = RecommendedWatcher::new(move |_res| {
+//         let storage= Arc::clone(&storage);
+//         let apps = Arc::clone(&apps);
+//         dbg!("here");
+//         tokio::spawn(async move {
+//             *apps.lock().await = storage.find_apps().await.unwrap();
+//             dbg!("here4");
+//         });
+//     }).unwrap();
+//     dbg!(&watch_path);
+//     watcher.watch(&watch_path, RecursiveMode::NonRecursive).unwrap();
+//     watcher
+// }
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("assets/index.html"))

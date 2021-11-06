@@ -4,9 +4,10 @@
 
 ## Features
 
-- Automatic app name, version, build datetime, icon and bundle identifier extraction from an IPA file
+- Automatic app name, version, build datetime, icon, size and bundle identifier extraction from an IPA file
 - Web UI app installer
 - Manifest.plist and install link generation
+- File System watcher and auto-reload
 
 ## Configuration
 
@@ -14,11 +15,12 @@
 
 ```
 USAGE:
-    app-park [OPTIONS]
+    app-park [FLAGS] [OPTIONS]
 
 FLAGS:
-    -h, --help       Prints help information
-    -V, --version    Prints version information
+    -h, --help             Prints help information
+    -V, --version          Prints version information
+    -w, --watch-storage    
 
 OPTIONS:
     -a, --address <address>     [default: 127.0.0.1]
