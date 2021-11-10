@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::PathBuf;
 
-use chrono::{DateTime, TimeZone, Utc};
+use chrono::{DateTime, Local, TimeZone};
 use plist::Value;
 use serde::Serialize;
 use zip::ZipArchive;
@@ -15,7 +15,7 @@ pub struct App {
     name: String,
     version: String,
     build: String,
-    date: DateTime<Utc>,
+    date: DateTime<Local>,
     size: u64,
     icon: Option<String>,
 }
@@ -53,7 +53,7 @@ impl App {
         &self.id
     }
 
-    pub fn date(&self) -> &DateTime<Utc> {
+    pub fn date(&self) -> &DateTime<Local> {
         &self.date
     }
 
@@ -116,13 +116,13 @@ fn binary_last_change(
     archive: &mut ZipArchive<File>,
     app_dir_path: &str,
     binary: &str,
-) -> Option<DateTime<Utc>> {
+) -> Option<DateTime<Local>> {
     let binary = archive
         .by_name(&format!("{}{}", app_dir_path, binary))
         .ok()?;
     let modified = binary.last_modified();
     Some(
-        Utc.ymd(
+        Local.ymd(
             modified.year() as i32,
             modified.month() as u32,
             modified.day() as u32,
