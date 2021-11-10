@@ -9,6 +9,8 @@ pub struct Options {
     pub storage: PathBuf,
     #[structopt(short = "w", long)]
     pub watch_storage: bool,
+    #[structopt(short = "t", long, default_value = "0", allow_hyphen_values = true)]
+    pub timezone: i32,
     #[structopt(short = "a", long, default_value = "127.0.0.1")]
     pub address: IpAddr,
     #[structopt(short = "p", long, default_value = "8080")]

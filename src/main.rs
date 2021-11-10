@@ -31,7 +31,7 @@ type Apps = Arc<Mutex<HashMap<String, App>>>;
 async fn main() {
     let options = Options::from_args();
 
-    let storage = Arc::new(AppsStorage(options.storage));
+    let storage = Arc::new(AppsStorage::new(options.storage, options.timezone));
     let apps = Arc::new(Mutex::new(storage.find_apps().await.unwrap()));
 
     if options.watch_storage {
@@ -64,7 +64,7 @@ pub async fn watch_storage(storage: Arc<AppsStorage>, apps: Apps) -> notify::Res
     let mut watcher = RecommendedWatcher::new(move |res| {
         tx.blocking_send(res).unwrap();
     })?;
-    watcher.watch(&storage.0, RecursiveMode::NonRecursive)?;
+    watcher.watch(storage.path(), RecursiveMode::NonRecursive)?;
 
     while let Some(res) = rx.recv().await {
         match res {
@@ -77,23 +77,6 @@ pub async fn watch_storage(storage: Arc<AppsStorage>, apps: Apps) -> notify::Res
 
     Ok(())
 }
-
-// fn watch_storage(storage: Arc<AppsStorage>, apps: Apps) -> RecommendedWatcher {
-//     dbg!("here2");
-//     let watch_path = storage.0.clone();
-//     let mut watcher = RecommendedWatcher::new(move |_res| {
-//         let storage= Arc::clone(&storage);
-//         let apps = Arc::clone(&apps);
-//         dbg!("here");
-//         tokio::spawn(async move {
-//             *apps.lock().await = storage.find_apps().await.unwrap();
-//             dbg!("here4");
-//         });
-//     }).unwrap();
-//     dbg!(&watch_path);
-//     watcher.watch(&watch_path, RecursiveMode::NonRecursive).unwrap();
-//     watcher
-// }
 
 async fn index() -> Html<&'static str> {
     Html(include_str!("assets/index.html"))
@@ -140,7 +123,7 @@ async fn app_ipa(
     Path(id): Path<String>,
     Extension(storage): Extension<Arc<AppsStorage>>,
 ) -> Result<impl IntoResponse, Error> {
-    let file = File::open(storage.0.join(format!("{}.ipa", id)))
+    let file = File::open(storage.path().join(format!("{}.ipa", id)))
         .await
         .map_err(|_| Error::AppBinary)?;
     let size = file.metadata().await.map_err(|_| Error::AppMetadata)?.len();

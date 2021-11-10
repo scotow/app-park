@@ -8,6 +8,7 @@
 - Web UI app installer
 - Manifest.plist and install link generation
 - File System watcher and auto-reload
+- Timezone customization
 
 ## Configuration
 
@@ -23,9 +24,10 @@ FLAGS:
     -w, --watch-storage    
 
 OPTIONS:
-    -a, --address <address>     [default: 127.0.0.1]
-    -p, --port <port>           [default: 8080]
-    -s, --storage <storage>     [default: .]
+    -a, --address <address>       [default: 127.0.0.1]
+    -p, --port <port>             [default: 8080]
+    -s, --storage <storage>       [default: .]
+    -t, --timezone <timezone>     [default: 0]
 ```
 
 ### Reverse-proxy

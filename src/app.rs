@@ -2,7 +2,7 @@ use std::fs::File;
 use std::io::{Cursor, Read};
 use std::path::PathBuf;
 
-use chrono::{DateTime, Local, TimeZone};
+use chrono::{DateTime, FixedOffset, TimeZone};
 use plist::Value;
 use serde::Serialize;
 use zip::ZipArchive;
@@ -15,20 +15,20 @@ pub struct App {
     name: String,
     version: String,
     build: String,
-    date: DateTime<Local>,
+    date: DateTime<FixedOffset>,
     size: u64,
     icon: Option<String>,
 }
 
 impl App {
-    pub fn new(path: PathBuf) -> Option<Self> {
+    pub fn new(path: PathBuf, timezone: i32) -> Option<Self> {
         let file = File::open(&path).ok()?;
         let size = file.metadata().ok()?.len();
         let mut archive = ZipArchive::new(file).ok()?;
         let app_dir_path = find_app_dir(&mut archive)?;
         let (binary, bundle_id, version, build, name, icon_name) =
             find_info_plist(&mut archive, &app_dir_path)?;
-        let date = binary_last_change(&mut archive, &app_dir_path, &binary)?;
+        let date = binary_last_change(&mut archive, &app_dir_path, &binary, timezone)?;
         let icon = match icon_name {
             Some(name) => Some(extract_icon_base64(&mut archive, &app_dir_path, &name)?),
             None => None,
@@ -53,7 +53,7 @@ impl App {
         &self.id
     }
 
-    pub fn date(&self) -> &DateTime<Local> {
+    pub fn date(&self) -> &DateTime<FixedOffset> {
         &self.date
     }
 
@@ -116,13 +116,14 @@ fn binary_last_change(
     archive: &mut ZipArchive<File>,
     app_dir_path: &str,
     binary: &str,
-) -> Option<DateTime<Local>> {
+    timezone: i32,
+) -> Option<DateTime<FixedOffset>> {
     let binary = archive
         .by_name(&format!("{}{}", app_dir_path, binary))
         .ok()?;
     let modified = binary.last_modified();
     Some(
-        Local.ymd(
+        FixedOffset::east(60 * 60 * timezone).ymd(
             modified.year() as i32,
             modified.month() as u32,
             modified.day() as u32,
